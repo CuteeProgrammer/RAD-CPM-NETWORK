@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>RAD CPM NETWORK - Attendance Dashboard</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #121212;
+      color: #f0f0f0;
+    }
+    header {
+      background: #1f1f1f;
+      padding: 15px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.4);
+    }
+    header h1 {
+      margin: 0;
+      color: #00e0ff;
+    }
+    header button {
+      margin-left: 10px;
+      padding: 8px 14px;
+      border: none;
+      background: #00e0ff;
+      color: #000;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    .container {
+      display: flex;
+      padding: 20px;
+    }
+    .left-panel {
+      width: 30%;
+      padding: 20px;
+      background: #1f1f1f;
+      border-radius: 12px;
+      margin-right: 20px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+    }
+    .left-panel select, .left-panel button {
+      width: 100%;
+      margin: 10px 0;
+      padding: 12px;
+      font-size: 16px;
+      border-radius: 6px;
+    }
+    .left-panel button {
+      border: none;
+      cursor: pointer;
+      font-weight: bold;
+      background: #00e0ff;
+      color: #000;
+    }
+    .right-panel {
+      flex: 1;
+      background: #1f1f1f;
+      border-radius: 12px;
+      padding: 20px;
+      overflow-x: auto;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    th, td {
+      padding: 10px;
+      border: 1px solid #333;
+      text-align: center;
+    }
+    th {
+      background: #2a2a2a;
+    }
+    tr:hover {
+      background: rgba(0, 224, 255, 0.1);
+    }
+    .footer {
+      text-align: center;
+      padding: 15px;
+    }
+    .hidden {
+      display: none;
+    }
+    /* Slide animation for page switch */
+    .page {
+      opacity: 0;
+      transform: translateX(100%);
+      transition: all 0.6s ease;
+      position: absolute;
+      top: 70px;
+      left: 0;
+      width: 100%;
+      height: calc(100% - 70px);
+      overflow-y: auto;
+    }
+    .page.active {
+      opacity: 1;
+      transform: translateX(0);
+      position: relative;
+    }
+    /* Monthly report styling */
+    #monthly-report h2 {
+      text-align: center;
+      color: #00e0ff;
+    }
+    #monthly-report table {
+      font-size: 14px;
+    }
+    #monthly-report .actions {
+      text-align: center;
+      margin: 15px;
+    }
+    #monthly-report .actions button {
+      margin: 5px;
+      padding: 10px 16px;
+    }
+  </style>
+</head>
+<body>
+<header>
+  <h1>RAD CPM NETWORK</h1>
+  <div>
+    <button onclick="showPage('dashboard')">🏠 Dashboard</button>
+    <button onclick="showPage('monthly-report')">📊 Monthly Report</button>
+  </div>
+</header>
+
+<!-- DASHBOARD VIEW -->
+<div id="dashboard" class="page active">
+  <div class="container">
+    <div class="left-panel">
+      <h2>Mark Attendance</h2>
+      <select id="employeeSelect">
+        <option value="">-- Select Employee --</option>
+        <option>Ahmad Rehmani</option>
+        <option>Malik Hamza</option>
+        <option>Noman</option>
+        <option>Tabarak</option>
+        <option>Konain</option>
+        <option>Faizan</option>
+        <option>Ahsan Bhai</option>
+        <option>Huzaifa</option>
+        <option>Hamza Mughal</option>
+        <option>Adnan</option>
+      </select>
+      <button onclick="markAttendance('Present')">✅ Present</button>
+      <button onclick="markAttendance('Absent')">❌ Absent</button>
+      <button onclick="undoAttendance()">↩ Undo</button>
+    </div>
+    <div class="right-panel">
+      <h2>Today’s Attendance (<span id="todayDate"></span>)</h2>
+      <table id="attendanceTable">
+        <thead>
+          <tr><th>Name</th><th>Status</th><th>Time</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+  <div class="footer">
+    <button onclick="exportDailyCSV()">⬇ Export Daily CSV</button>
+  </div>
+</div>
+
+<!-- MONTHLY REPORT VIEW -->
+<div id="monthly-report" class="page">
+  <h2>Monthly Attendance Report</h2>
+  <div class="actions">
+    <button onclick="exportMonthlyCSV()">⬇ Export CSV</button>
+    <button onclick="exportMonthlyExcel()">⬇ Export Excel</button>
+    <button onclick="window.print()">🖨 Print PDF</button>
+  </div>
+  <div class="right-panel">
+    <table id="monthlyTable">
+      <thead></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+  <div class="actions">
+    <button onclick="showPage('dashboard')">⬅ Back to Dashboard</button>
+  </div>
+</div>
+
+<script>
+  const employees = ["Ahmad Rehmani","Malik Hamza","Noman","Tabarak","Konain","Faizan","Ahsan Bhai","Huzaifa","Hamza Mughal","Adnan"];
+  const today = new Date().toLocaleDateString();
+  document.getElementById("todayDate").textContent = today;
+
+  // Load or init storage
+  let attendanceData = JSON.parse(localStorage.getItem("attendanceData")) || {};
+
+  // Render daily table
+  function renderDaily() {
+    const tbody = document.querySelector("#attendanceTable tbody");
+    tbody.innerHTML = "";
+    employees.forEach(emp => {
+      const rec = (attendanceData[today]||{})[emp] || {};
+      const row = `<tr>
+        <td>${emp}</td>
+        <td>${rec.status || ""}</td>
+        <td>${rec.time || ""}</td>
+      </tr>`;
+      tbody.innerHTML += row;
+    });
+  }
+  renderDaily();
+
+  function markAttendance(status) {
+    const emp = document.getElementById("employeeSelect").value;
+    if (!emp) return alert("Select an employee");
+    if (!attendanceData[today]) attendanceData[today] = {};
+    attendanceData[today][emp] = {status,time:new Date().toLocaleTimeString()};
+    localStorage.setItem("attendanceData",JSON.stringify(attendanceData));
+    renderDaily();
+  }
+
+  function undoAttendance() {
+    const emp = document.getElementById("employeeSelect").value;
+    if (!emp) return;
+    if (attendanceData[today]) delete attendanceData[today][emp];
+    localStorage.setItem("attendanceData",JSON.stringify(attendanceData));
+    renderDaily();
+  }
+
+  function exportDailyCSV() {
+    if (!attendanceData[today]) return alert("No data for today");
+    let csv = "Name,Status,Time\n";
+    employees.forEach(emp=>{
+      const rec = attendanceData[today][emp]||{};
+      csv += `${emp},${rec.status||""},${rec.time||""}\n`;
+    });
+    downloadCSV(csv,"attendance-"+today+".csv");
+  }
+
+  // Monthly view
+  function renderMonthly() {
+    const month = new Date().getMonth();
+    const year = new Date().getFullYear();
+    const daysInMonth = new Date(year, month+1, 0).getDate();
+    const thead = document.querySelector("#monthlyTable thead");
+    const tbody = document.querySelector("#monthlyTable tbody");
+    thead.innerHTML = "<tr><th>Name</th>"+Array.from({length:daysInMonth},(_,i)=>`<th>${i+1}</th>`).join("")+"<th>Present</th><th>Absent</th></tr>";
+    tbody.innerHTML = "";
+    employees.forEach(emp=>{
+      let present=0,absent=0;
+      let row = `<tr><td>${emp}</td>`;
+      for(let d=1; d<=daysInMonth; d++){
+        const dateStr = new Date(year,month,d).toLocaleDateString();
+        const rec = (attendanceData[dateStr]||{})[emp]||{};
+        let mark = "";
+        if(rec.status==="Present"){ mark="✅"; present++; }
+        else if(rec.status==="Absent"){ mark="❌"; absent++; }
+        row += `<td>${mark}</td>`;
+      }
+      row += `<td>${present}</td><td>${absent}</td></tr>`;
+      tbody.innerHTML += row;
+    });
+  }
+
+  function exportMonthlyCSV() {
+    let csv = "Name";
+    const month = new Date().getMonth();
+    const year = new Date().getFullYear();
+    const daysInMonth = new Date(year, month+1, 0).getDate();
+    for(let d=1; d<=daysInMonth; d++) csv+=`,${d}`;
+    csv+=",Present,Absent\n";
+    employees.forEach(emp=>{
+      let present=0,absent=0;
+      let line = emp;
+      for(let d=1; d<=daysInMonth; d++){
+        const dateStr = new Date(year,month,d).toLocaleDateString();
+        const rec = (attendanceData[dateStr]||{})[emp]||{};
+        let mark="";
+        if(rec.status==="Present"){mark="P";present++;}
+        else if(rec.status==="Absent"){mark="A";absent++;}
+        line+=`,`+mark;
+      }
+      line+=`,`+present+`,`+absent+"\n";
+      csv+=line;
+    });
+    downloadCSV(csv,"monthly-report.csv");
+  }
+
+  function exportMonthlyExcel() {
+    alert("Excel export: Open CSV in Excel to view as spreadsheet.");
+    exportMonthlyCSV();
+  }
+
+  function downloadCSV(content, filename) {
+    const blob = new Blob([content],{type:"text/csv;charset=utf-8;"});
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href=url;
+    link.download=filename;
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function showPage(id) {
+    document.querySelectorAll(".page").forEach(p=>p.classList.remove("active"));
+    document.getElementById(id).classList.add("active");
+    if(id==="monthly-report") renderMonthly();
+  }
+</script>
+</body>
+</html>
