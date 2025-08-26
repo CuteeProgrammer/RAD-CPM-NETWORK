@@ -9,6 +9,8 @@
       font-family: Arial, sans-serif;
       background: #121212;
       color: #f0f0f0;
+      overflow-x: hidden;
+      perspective: 1000px;
     }
     header {
       background: #1f1f1f;
@@ -44,7 +46,7 @@
       margin-right: 20px;
       box-shadow: 0 4px 10px rgba(0,0,0,0.5);
     }
-    .left-panel select, .left-panel button {
+    .left-panel select, .left-panel button, .left-panel input[type="date"] {
       width: 100%;
       margin: 10px 0;
       padding: 12px;
@@ -121,10 +123,87 @@
       margin: 5px;
       padding: 10px 16px;
     }
+
+    /* LOGIN PAGE */
+    #login-page {
+      height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+      background: linear-gradient(135deg, #00e0ff, #004d7a, #001f3f);
+      background-size: 300% 300%;
+      animation: gradientBG 8s ease infinite;
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      z-index: 10;
+      color: white;
+      perspective: 1000px;
+    }
+    @keyframes gradientBG {
+      0% {background-position: 0% 50%;}
+      50% {background-position: 100% 50%;}
+      100% {background-position: 0% 50%;}
+    }
+    #login-box {
+      background: rgba(0,0,0,0.6);
+      padding: 30px;
+      border-radius: 15px;
+      text-align: center;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.7);
+      animation: slideUp 1s ease;
+      transform-style: preserve-3d;
+      transition: transform 1s ease, opacity 1s ease;
+    }
+    #login-box.flip {
+      transform: rotateY(180deg) scale(0.6);
+      opacity: 0;
+    }
+    @keyframes slideUp {
+      from {transform: translateY(50px); opacity: 0;}
+      to {transform: translateY(0); opacity: 1;}
+    }
+    #login-box h1 {
+      margin-bottom: 20px;
+      color: #00e0ff;
+    }
+    #login-box input {
+      width: 250px;
+      padding: 12px;
+      margin: 10px 0;
+      border: none;
+      border-radius: 8px;
+      outline: none;
+      font-size: 16px;
+    }
+    #login-box button {
+      width: 100%;
+      padding: 12px;
+      border: none;
+      border-radius: 8px;
+      background: #00e0ff;
+      color: #000;
+      font-weight: bold;
+      cursor: pointer;
+      margin-top: 15px;
+    }
   </style>
 </head>
 <body>
-<header>
+
+<!-- LOGIN PAGE -->
+<div id="login-page">
+  <div id="login-box">
+    <h1>RAD CPM NETWORK</h1>
+    <input type="text" id="username" placeholder="Username">
+    <input type="password" id="password" placeholder="Password">
+    <button onclick="login()">Login</button>
+  </div>
+</div>
+
+<header class="hidden">
   <h1>RAD CPM NETWORK</h1>
   <div>
     <button onclick="showPage('dashboard')">🏠 Dashboard</button>
@@ -133,10 +212,11 @@
 </header>
 
 <!-- DASHBOARD VIEW -->
-<div id="dashboard" class="page active">
+<div id="dashboard" class="page hidden active">
   <div class="container">
     <div class="left-panel">
       <h2>Mark Attendance</h2>
+      <input type="date" id="dateSelect">
       <select id="employeeSelect">
         <option value="">-- Select Employee --</option>
         <option>Ahmad Rehmani</option>
@@ -155,7 +235,7 @@
       <button onclick="undoAttendance()">↩ Undo</button>
     </div>
     <div class="right-panel">
-      <h2>Today’s Attendance (<span id="todayDate"></span>)</h2>
+      <h2>Attendance (<span id="selectedDate"></span>)</h2>
       <table id="attendanceTable">
         <thead>
           <tr><th>Name</th><th>Status</th><th>Time</th></tr>
@@ -170,7 +250,7 @@
 </div>
 
 <!-- MONTHLY REPORT VIEW -->
-<div id="monthly-report" class="page">
+<div id="monthly-report" class="page hidden">
   <h2>Monthly Attendance Report</h2>
   <div class="actions">
     <button onclick="exportMonthlyCSV()">⬇ Export CSV</button>
@@ -190,18 +270,49 @@
 
 <script>
   const employees = ["Ahmad Rehmani","Malik Hamza","Noman","Tabarak","Konain","Faizan","Ahsan Bhai","Huzaifa","Hamza Mughal","Adnan"];
-  const today = new Date().toLocaleDateString();
-  document.getElementById("todayDate").textContent = today;
-
-  // Load or init storage
   let attendanceData = JSON.parse(localStorage.getItem("attendanceData")) || {};
+  
+  // Login System with 3D Flip
+  function login() {
+    const user = document.getElementById("username").value;
+    const pass = document.getElementById("password").value;
+    const box = document.getElementById("login-box");
 
-  // Render daily table
+    if(user==="admin" && pass==="1234"){
+      box.classList.add("flip");
+      setTimeout(()=>{
+        document.getElementById("login-page").style.display="none";
+        document.querySelector("header").classList.remove("hidden");
+        document.querySelectorAll(".page").forEach(p=>p.classList.remove("hidden"));
+        initDate();
+      },1000);
+    } else {
+      alert("Invalid Username or Password!");
+    }
+  }
+
+  // Date Selection
+  function initDate() {
+    const dateInput = document.getElementById("dateSelect");
+    const today = new Date().toISOString().split("T")[0];
+    dateInput.value = today;
+    updateDate();
+    dateInput.addEventListener("change", updateDate);
+  }
+
+  function updateDate() {
+    const selected = document.getElementById("dateSelect").value;
+    document.getElementById("selectedDate").textContent = new Date(selected).toLocaleDateString();
+    renderDaily();
+  }
+
+  // Render Daily
   function renderDaily() {
+    const dateStr = new Date(document.getElementById("dateSelect").value).toLocaleDateString();
     const tbody = document.querySelector("#attendanceTable tbody");
     tbody.innerHTML = "";
     employees.forEach(emp => {
-      const rec = (attendanceData[today]||{})[emp] || {};
+      const rec = (attendanceData[dateStr]||{})[emp] || {};
       const row = `<tr>
         <td>${emp}</td>
         <td>${rec.status || ""}</td>
@@ -210,36 +321,38 @@
       tbody.innerHTML += row;
     });
   }
-  renderDaily();
 
   function markAttendance(status) {
     const emp = document.getElementById("employeeSelect").value;
+    const dateStr = new Date(document.getElementById("dateSelect").value).toLocaleDateString();
     if (!emp) return alert("Select an employee");
-    if (!attendanceData[today]) attendanceData[today] = {};
-    attendanceData[today][emp] = {status,time:new Date().toLocaleTimeString()};
+    if (!attendanceData[dateStr]) attendanceData[dateStr] = {};
+    attendanceData[dateStr][emp] = {status,time:new Date().toLocaleTimeString()};
     localStorage.setItem("attendanceData",JSON.stringify(attendanceData));
     renderDaily();
   }
 
   function undoAttendance() {
     const emp = document.getElementById("employeeSelect").value;
+    const dateStr = new Date(document.getElementById("dateSelect").value).toLocaleDateString();
     if (!emp) return;
-    if (attendanceData[today]) delete attendanceData[today][emp];
+    if (attendanceData[dateStr]) delete attendanceData[dateStr][emp];
     localStorage.setItem("attendanceData",JSON.stringify(attendanceData));
     renderDaily();
   }
 
   function exportDailyCSV() {
-    if (!attendanceData[today]) return alert("No data for today");
+    const dateStr = new Date(document.getElementById("dateSelect").value).toLocaleDateString();
+    if (!attendanceData[dateStr]) return alert("No data for this date");
     let csv = "Name,Status,Time\n";
     employees.forEach(emp=>{
-      const rec = attendanceData[today][emp]||{};
+      const rec = attendanceData[dateStr][emp]||{};
       csv += `${emp},${rec.status||""},${rec.time||""}\n`;
     });
-    downloadCSV(csv,"attendance-"+today+".csv");
+    downloadCSV(csv,"attendance-"+dateStr+".csv");
   }
 
-  // Monthly view
+  // Monthly Report
   function renderMonthly() {
     const month = new Date().getMonth();
     const year = new Date().getFullYear();
@@ -311,3 +424,4 @@
 </script>
 </body>
 </html>
+
