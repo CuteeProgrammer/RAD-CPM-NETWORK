@@ -271,7 +271,13 @@
 <script>
   const employees = ["Ahmad Rehmani","Malik Hamza","Noman","Tabarak","Konain","Faizan","Ahsan Bhai","Huzaifa","Hamza Mughal","Adnan"];
   let attendanceData = JSON.parse(localStorage.getItem("attendanceData")) || {};
-  
+
+  // Auto Save (every 5 seconds backup)
+  setInterval(()=>{
+    localStorage.setItem("attendanceData", JSON.stringify(attendanceData));
+    console.log("✅ Auto-saved at " + new Date().toLocaleTimeString());
+  },5000);
+
   // Login System with 3D Flip
   function login() {
     const user = document.getElementById("username").value;
@@ -328,7 +334,7 @@
     if (!emp) return alert("Select an employee");
     if (!attendanceData[dateStr]) attendanceData[dateStr] = {};
     attendanceData[dateStr][emp] = {status,time:new Date().toLocaleTimeString()};
-    localStorage.setItem("attendanceData",JSON.stringify(attendanceData));
+    localStorage.setItem("attendanceData",JSON.stringify(attendanceData)); // instant save
     renderDaily();
   }
 
@@ -337,7 +343,7 @@
     const dateStr = new Date(document.getElementById("dateSelect").value).toLocaleDateString();
     if (!emp) return;
     if (attendanceData[dateStr]) delete attendanceData[dateStr][emp];
-    localStorage.setItem("attendanceData",JSON.stringify(attendanceData));
+    localStorage.setItem("attendanceData",JSON.stringify(attendanceData)); // instant save
     renderDaily();
   }
 
@@ -424,4 +430,5 @@
 </script>
 </body>
 </html>
+
 
